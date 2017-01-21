@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -10,9 +11,6 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-
-	"archive/zip"
-
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -73,27 +71,17 @@ func main() {
 				panic(err)
 			}
 
-			obj := make(map[interface{}]interface{})
+			obj := make(map[string]map[string]interface{})
 			err = yaml.Unmarshal([]byte(content), &obj)
+			fmt.Printf("obj: %s\n\n", obj)
 			if err != nil {
 				panic(err)
 			}
 
-			for _, proxyData := range obj {
+			for proxyConfigName, proxyData := range obj {
 
-				m2 := make(map[string]string)
-				for key, value := range proxyData.(map[interface{}]interface{}) {
-					switch key := key.(type) {
-					case string:
-						switch value := value.(type) {
-						case string:
-							m2[key] = value
-						}
-					}
-				}
-
-				p := proxy.New(m2["url"])
-				r.Handle(m2["base_path"], http.StripPrefix(m2["base_path"], p))
+				p := proxy.New(proxyConfigName, proxyData)
+				r.Handle(p.Basepath(), http.StripPrefix(p.Basepath(), p))
 			}
 		}
 
