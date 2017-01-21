@@ -81,7 +81,7 @@ func main() {
 			for proxyConfigName, proxyData := range obj {
 
 				p := proxy.New(proxyConfigName, proxyData)
-				r.Handle(p.Basepath(), http.StripPrefix(p.Basepath(), p))
+				r.Handle(fmt.Sprintf("%s{rest:.*}", p.Basepath()), http.StripPrefix(p.Basepath(), p))
 			}
 		}
 

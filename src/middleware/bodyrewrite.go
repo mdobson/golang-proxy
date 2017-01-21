@@ -11,7 +11,7 @@ type BodyRewrite struct {
 }
 
 func (h *BodyRewrite) GetID() string {
-	return "HeaderSet"
+	return "BodyRewrite"
 }
 
 func (h *BodyRewrite) Handle(next http.Handler) http.Handler {

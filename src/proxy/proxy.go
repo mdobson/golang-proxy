@@ -51,7 +51,10 @@ func (p *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	headerHandle := h.Handle(finalHandler)
 
 	b := middleware.BodyRewrite{}
-	b.Handle(headerHandle).ServeHTTP(w, r)
+	bodyRewriteHandle := b.Handle(headerHandle)
+
+	e := middleware.TriggerBadRequest{}
+	e.Handle(bodyRewriteHandle).ServeHTTP(w, r)
 }
 
 func (p *ReverseProxy) Basepath() string {
