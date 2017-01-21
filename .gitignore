@@ -1,0 +1,10 @@
+.DS_Store
+.vscode
+bin
+pkg
+main
+tmp
+source.env
+db/
+src/github.com
+src/gopkg.in
