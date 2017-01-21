@@ -1,9 +1,11 @@
 package proxy
 
 import (
+	"middleware"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"roundtrippers"
 )
 
 type ProxyData struct {
@@ -33,12 +35,23 @@ func New(proxyConfigName string, proxyData map[string]interface{}) *ReverseProxy
 		proxyConfigName: proxyConfigName,
 	}
 	url, _ := url.Parse(proxyStruct.targetURL)
-	return &ReverseProxy{target: url, proxy: httputil.NewSingleHostReverseProxy(url), data: &proxyStruct}
+	p := httputil.NewSingleHostReverseProxy(url)
+	p.Transport = &roundtrippers.ResponseInterceptTransport{http.DefaultTransport}
+	return &ReverseProxy{target: url, proxy: p, data: &proxyStruct}
+}
+
+func (p *ReverseProxy) FinalMiddleware(w http.ResponseWriter, r *http.Request) {
+	p.proxy.ServeHTTP(w, r)
 }
 
 func (p *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("X-GoProxy", "GoProxy")
-	p.proxy.ServeHTTP(w, r)
+	finalHandler := http.HandlerFunc(p.FinalMiddleware)
+
+	h := middleware.HeaderSet{}
+	headerHandle := h.Handle(finalHandler)
+
+	b := middleware.BodyRewrite{}
+	b.Handle(headerHandle).ServeHTTP(w, r)
 }
 
 func (p *ReverseProxy) Basepath() string {
