@@ -19,9 +19,10 @@ type ProxyData struct {
 }
 
 type ReverseProxy struct {
-	target *url.URL
-	proxy  *httputil.ReverseProxy
-	data   *ProxyData
+	target      *url.URL
+	proxy       *httputil.ReverseProxy
+	data        *ProxyData
+	middlewares *middleware.RequestMiddlewareSequence
 }
 
 func New(proxyConfigName string, proxyData map[string]interface{}) *ReverseProxy {
@@ -37,7 +38,9 @@ func New(proxyConfigName string, proxyData map[string]interface{}) *ReverseProxy
 	url, _ := url.Parse(proxyStruct.targetURL)
 	p := httputil.NewSingleHostReverseProxy(url)
 	p.Transport = &roundtrippers.ResponseInterceptTransport{http.DefaultTransport}
-	return &ReverseProxy{target: url, proxy: p, data: &proxyStruct}
+	middlewareSequence := middleware.CreateService()
+
+	return &ReverseProxy{target: url, proxy: p, data: &proxyStruct, middlewares: &middlewareSequence}
 }
 
 func (p *ReverseProxy) FinalMiddleware(w http.ResponseWriter, r *http.Request) {
@@ -46,15 +49,8 @@ func (p *ReverseProxy) FinalMiddleware(w http.ResponseWriter, r *http.Request) {
 
 func (p *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	finalHandler := http.HandlerFunc(p.FinalMiddleware)
-
-	h := middleware.HeaderSet{}
-	headerHandle := h.Handle(finalHandler)
-
-	b := middleware.BodyRewrite{}
-	bodyRewriteHandle := b.Handle(headerHandle)
-
-	e := middleware.TriggerBadRequest{}
-	e.Handle(bodyRewriteHandle).ServeHTTP(w, r)
+	middlewares := []string{"HeaderSet", "BodyRewrite", "TriggerBadRequest"}
+	p.middlewares.Compile(middlewares, finalHandler).ServeHTTP(w, r)
 }
 
 func (p *ReverseProxy) Basepath() string {

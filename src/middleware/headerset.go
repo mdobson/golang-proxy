@@ -9,11 +9,11 @@ import (
 type HeaderSet struct {
 }
 
-func (h *HeaderSet) GetID() string {
+func (h HeaderSet) GetID() string {
 	return "HeaderSet"
 }
 
-func (h *HeaderSet) Handle(next http.Handler) http.Handler {
+func (h HeaderSet) Handle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gatewayFlowID, _ := uuid.NewUUID()
 
