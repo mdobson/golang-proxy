@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"data"
 	"middleware"
 	"net/http"
 	"net/http/httputil"
@@ -8,37 +9,28 @@ import (
 	"roundtrippers"
 )
 
-type ProxyData struct {
-	targetURL       string `yaml:"target_url"`
-	revision        string `yaml:"revision"`
-	targetName      string `yaml:"target_name"`
-	proxyName       string `yaml:"name"`
-	basepath        string `yaml:"base_path"`
-	vhost           string `yaml:"vhost"`
-	proxyConfigName string
-}
-
 type ReverseProxy struct {
 	target      *url.URL
 	proxy       *httputil.ReverseProxy
-	data        *ProxyData
+	data        *data.ProxyData
 	middlewares *middleware.RequestMiddlewareSequence
 }
 
-func New(proxyConfigName string, proxyData map[string]interface{}) *ReverseProxy {
-	proxyStruct := ProxyData{
-		targetURL:       proxyData["url"].(string),
-		revision:        proxyData["revision"].(string),
-		targetName:      proxyData["target_name"].(string),
-		proxyName:       proxyData["proxy_name"].(string),
-		basepath:        proxyData["base_path"].(string),
-		vhost:           proxyData["vhost"].(string),
-		proxyConfigName: proxyConfigName,
+func New(proxyConfigName string, proxyScope string, proxyData map[string]interface{}) *ReverseProxy {
+	proxyStruct := data.ProxyData{
+		TargetURL:       proxyData["url"].(string),
+		Revision:        proxyData["revision"].(string),
+		TargetName:      proxyData["target_name"].(string),
+		ProxyName:       proxyData["proxy_name"].(string),
+		Basepath:        proxyData["base_path"].(string),
+		Vhost:           proxyData["vhost"].(string),
+		ProxyConfigName: proxyConfigName,
+		ProxyScope:      proxyScope,
 	}
-	url, _ := url.Parse(proxyStruct.targetURL)
+	url, _ := url.Parse(proxyStruct.TargetURL)
 	p := httputil.NewSingleHostReverseProxy(url)
 	p.Transport = &roundtrippers.ResponseInterceptTransport{http.DefaultTransport}
-	middlewareSequence := middleware.CreateService()
+	middlewareSequence := middleware.CreateService(proxyStruct)
 
 	return &ReverseProxy{target: url, proxy: p, data: &proxyStruct, middlewares: &middlewareSequence}
 }
@@ -49,10 +41,10 @@ func (p *ReverseProxy) FinalMiddleware(w http.ResponseWriter, r *http.Request) {
 
 func (p *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	finalHandler := http.HandlerFunc(p.FinalMiddleware)
-	middlewares := []string{"HeaderSet", "BodyRewrite", "TriggerBadRequest"}
+	middlewares := []string{"VerifyApiKey", "HeaderSet", "BodyRewrite", "TriggerBadRequest"}
 	p.middlewares.Compile(middlewares, finalHandler).ServeHTTP(w, r)
 }
 
 func (p *ReverseProxy) Basepath() string {
-	return p.data.basepath
+	return p.data.Basepath
 }

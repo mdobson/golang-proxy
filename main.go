@@ -32,7 +32,7 @@ func main() {
 	type deployments []deployment
 
 	latestDeployments := deployments{}
-	resp, err := http.Get("http://localhost:9000/deployments")
+	resp, err := http.Get("http://localhost:9090/deployments")
 
 	if err != nil {
 		panic(err)
@@ -80,7 +80,7 @@ func main() {
 
 			for proxyConfigName, proxyData := range obj {
 
-				p := proxy.New(proxyConfigName, proxyData)
+				p := proxy.New(proxyConfigName, d.ScopeID, proxyData)
 				r.Handle(fmt.Sprintf("%s{rest:.*}", p.Basepath()), http.StripPrefix(p.Basepath(), p))
 			}
 		}

@@ -16,6 +16,7 @@ func (h BodyRewrite) GetID() string {
 
 func (h BodyRewrite) Handle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
 		if r.Method != "GET" {
 			fmt.Println("Not a GET request. Let's rewrite the body.")
 			newBodyContent := "Body Rewritten By Proxy!"

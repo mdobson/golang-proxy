@@ -1,6 +1,7 @@
 package middleware
 
 import "net/http"
+import "data"
 
 type RequestMiddleware interface {
 	GetID() string
@@ -11,8 +12,12 @@ type RequestMiddlewareSequence struct {
 	MiddlewareIDs map[string]RequestMiddleware
 }
 
-func CreateService() RequestMiddlewareSequence {
+func CreateService(proxyData data.ProxyData) RequestMiddlewareSequence {
 	sequence := RequestMiddlewareSequence{MiddlewareIDs: make(map[string]RequestMiddleware)}
+	v := VerifyApiKey{
+		Proxy: proxyData,
+	}
+	sequence.RegisterMiddleware(v.GetID(), v)
 	h := HeaderSet{}
 	sequence.RegisterMiddleware(h.GetID(), h)
 	b := BodyRewrite{}
