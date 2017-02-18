@@ -48,3 +48,7 @@ func (p *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (p *ReverseProxy) Basepath() string {
 	return p.data.Basepath
 }
+
+func (p *ReverseProxy) Target() string {
+	return p.data.TargetURL
+}

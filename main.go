@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"proxy"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -32,7 +32,11 @@ func main() {
 	type deployments []deployment
 
 	latestDeployments := deployments{}
-	resp, err := http.Get("http://localhost:9090/deployments")
+	apidUrl := "http://localhost:9090/deployments"
+	log.WithFields(log.Fields{
+		"url": apidUrl,
+	}).Info("Downloading deployments from apid")
+	resp, err := http.Get(apidUrl)
 
 	if err != nil {
 		panic(err)
@@ -49,7 +53,7 @@ func main() {
 	json.Unmarshal(body, &latestDeployments)
 
 	for _, d := range latestDeployments {
-		fmt.Printf("getting uri: %s\n", d.URI)
+		log.Info("Unzipping deployment at URI", d.URI)
 		replacedPath := strings.Replace(d.URI, "file://", "", 1)
 		zippedFile, err := zip.OpenReader(replacedPath)
 
@@ -73,19 +77,23 @@ func main() {
 
 			obj := make(map[string]map[string]interface{})
 			err = yaml.Unmarshal([]byte(content), &obj)
-			fmt.Printf("obj: %s\n\n", obj)
 			if err != nil {
 				panic(err)
 			}
 
 			for proxyConfigName, proxyData := range obj {
-
 				p := proxy.New(proxyConfigName, d.ScopeID, proxyData)
+				log.WithFields(log.Fields{
+					"step":     "deployment",
+					"basepath": p.Basepath(),
+					"target":   p.Target(),
+				}).Info("Proxy found and being deployed")
 				r.Handle(fmt.Sprintf("%s{rest:.*}", p.Basepath()), http.StripPrefix(p.Basepath(), p))
 			}
 		}
 
 	}
 
+	log.Info("Serving http requests at http://localhost:8000")
 	log.Fatal(http.ListenAndServe(":8000", r))
 }

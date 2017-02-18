@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/google/uuid"
 )
 
@@ -15,6 +16,9 @@ func (h HeaderSet) GetID() string {
 
 func (h HeaderSet) Handle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.WithFields(log.Fields{
+			"middleware": h.GetID(),
+		}).Info("Passing through middleware")
 		gatewayFlowID, _ := uuid.NewUUID()
 
 		//Sets a header in the outgoing request

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 type APIKeyContext struct {
@@ -33,10 +35,19 @@ func (v VerifyApiKey) GetID() string {
 }
 
 func (v VerifyApiKey) Handle(next http.Handler) http.Handler {
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.WithFields(log.Fields{
+			"middleware": v.GetID(),
+		}).Info("Passing through middleware")
 		apiKey := r.Header.Get("x-api-key")
 
 		if apiKey != "" {
+
+			log.WithFields(log.Fields{
+				"middleware": v.GetID(),
+				"key":        apiKey,
+			}).Info("Attempting to verify API Key")
 			form := url.Values{}
 			form.Add("scopeuuid", v.Proxy.ProxyScope)
 			form.Add("key", apiKey)
@@ -59,17 +70,27 @@ func (v VerifyApiKey) Handle(next http.Handler) http.Handler {
 			}
 
 			if verifyError := apiKeyContext.Type; verifyError == "ErrorResult" {
+				log.WithFields(log.Fields{
+					"middleware": v.GetID(),
+					"key":        apiKey,
+				}).Info("Key Not Verified")
 				http.Error(w, http.StatusText(401), 401)
 			} else {
 				status := apiKeyContext.Result.Status
 				if status == "APPROVED" {
+					log.WithFields(log.Fields{
+						"middleware": v.GetID(),
+						"key":        apiKey,
+					}).Info("Key Verified")
 					next.ServeHTTP(w, r)
 				}
 			}
 
 		} else {
+			log.WithFields(log.Fields{
+				"middleware": v.GetID(),
+			}).Info("No key present to verify")
 			http.Error(w, http.StatusText(401), 401)
 		}
-		//next.ServeHTTP(w, r)
 	})
 }
