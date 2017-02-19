@@ -80,9 +80,14 @@ func (v VerifyApiKey) Handle(next http.Handler) http.Handler {
 				if status == "APPROVED" {
 					log.WithFields(log.Fields{
 						"middleware": v.GetID(),
-						"key":        apiKey,
 					}).Info("Key Verified")
 					next.ServeHTTP(w, r)
+				} else {
+					log.WithFields(log.Fields{
+						"middleware": v.GetID(),
+						"key":        apiKey,
+					}).Info("Key Not Verified")
+					http.Error(w, http.StatusText(401), 401)
 				}
 			}
 

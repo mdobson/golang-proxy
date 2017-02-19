@@ -39,7 +39,8 @@ func main() {
 	resp, err := http.Get(apidUrl)
 
 	if err != nil {
-		panic(err)
+		log.Errorf("Error retrieving deployments: %s", err.Error())
+		return
 	}
 
 	defer resp.Body.Close()
@@ -47,7 +48,8 @@ func main() {
 	body, err := ioutil.ReadAll(resp.Body)
 
 	if err != nil {
-		panic(err)
+		log.Errorf("Error reading deployments: %s", err.Error())
+		return
 	}
 
 	json.Unmarshal(body, &latestDeployments)

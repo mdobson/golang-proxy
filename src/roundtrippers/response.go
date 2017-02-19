@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 type ResponseInterceptTransport struct {
@@ -12,6 +14,9 @@ type ResponseInterceptTransport struct {
 }
 
 func (t *ResponseInterceptTransport) RoundTrip(r *http.Request) (resp *http.Response, err error) {
+	log.WithFields(log.Fields{
+		"middleware": "response-roundtripper",
+	}).Info("Receieving response from target")
 	res, err := t.RoundTripper.RoundTrip(r)
 
 	if err != nil {
@@ -29,7 +34,7 @@ func (t *ResponseInterceptTransport) RoundTrip(r *http.Request) (resp *http.Resp
 		return nil, err
 	}
 
-	b = bytes.Replace(b, []byte("Proxy"), []byte("Proxy During Request And Response"), -1)
+	b = bytes.Replace(b, []byte("Guest"), []byte("you clown!"), -1)
 	body := ioutil.NopCloser(bytes.NewReader(b))
 	res.Body = body
 	res.ContentLength = int64(len(b))
