@@ -43,7 +43,7 @@ func (v VerifyApiKey) Handle(next http.Handler) http.Handler {
 		apiKey := r.Header.Get("x-api-key")
 
 		if apiKey != "" {
-
+			ch := make(chan APIKeyContext)
 			log.WithFields(log.Fields{
 				"middleware": v.GetID(),
 				"key":        apiKey,
@@ -53,41 +53,53 @@ func (v VerifyApiKey) Handle(next http.Handler) http.Handler {
 			form.Add("key", apiKey)
 			form.Add("uriPath", v.Proxy.Basepath)
 			form.Add("action", "verify")
+			go func(form url.Values) {
 
-			apiUrl := "http://localhost:9090/verifiers/apikey"
-			resp, err := http.PostForm(apiUrl, form)
+				apiUrl := "http://localhost:9090/verifiers/apikey"
+				resp, err := http.PostForm(apiUrl, form)
 
-			if err != nil {
-				http.Error(w, http.StatusText(500), 500)
-			}
+				if err != nil {
+					ch <- APIKeyContext{Type: "RequestError"}
+				}
 
-			var apiKeyContext APIKeyContext
-			decoder := json.NewDecoder(resp.Body)
-			decoder.UseNumber()
+				var apiKeyContext APIKeyContext
+				decoder := json.NewDecoder(resp.Body)
+				decoder.UseNumber()
 
-			if err := decoder.Decode(&apiKeyContext); err != nil {
-				http.Error(w, http.StatusText(500), 500)
-			}
-
-			if verifyError := apiKeyContext.Type; verifyError == "ErrorResult" {
-				log.WithFields(log.Fields{
-					"middleware": v.GetID(),
-					"key":        apiKey,
-				}).Info("Key Not Verified")
-				http.Error(w, http.StatusText(401), 401)
-			} else {
-				status := apiKeyContext.Result.Status
-				if status == "APPROVED" {
-					log.WithFields(log.Fields{
-						"middleware": v.GetID(),
-					}).Info("Key Verified")
-					next.ServeHTTP(w, r)
+				if err := decoder.Decode(&apiKeyContext); err != nil {
+					ch <- APIKeyContext{Type: "DecodeError"}
 				} else {
-					log.WithFields(log.Fields{
-						"middleware": v.GetID(),
-						"key":        apiKey,
-					}).Info("Key Not Verified")
-					http.Error(w, http.StatusText(401), 401)
+					ch <- apiKeyContext
+				}
+			}(form)
+
+			for {
+				select {
+				case apiKeyContext := <-ch:
+					if verifyError := apiKeyContext.Type; verifyError == "ErrorResult" {
+						log.WithFields(log.Fields{
+							"middleware": v.GetID(),
+							"key":        apiKey,
+						}).Info("Key Not Verified")
+						http.Error(w, http.StatusText(401), 401)
+					} else if verifyError == "DecodeError" || verifyError == "RequestError" {
+						http.Error(w, http.StatusText(500), 500)
+					} else {
+						status := apiKeyContext.Result.Status
+						if status == "APPROVED" {
+							log.WithFields(log.Fields{
+								"middleware": v.GetID(),
+							}).Info("Key Verified")
+							next.ServeHTTP(w, r)
+						} else {
+							log.WithFields(log.Fields{
+								"middleware": v.GetID(),
+								"key":        apiKey,
+							}).Info("Key Not Verified")
+							http.Error(w, http.StatusText(401), 401)
+						}
+					}
+					return
 				}
 			}
 
